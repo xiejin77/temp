@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>牧场草量动态模型 - 整数参数</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .parameter-section {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #cce5ff;
+        }
+        .parameter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .parameter-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .parameter-item label {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .parameter-item input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .pasture-container {
+            display: flex;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .pasture {
+            flex: 1;
+            min-width: 200px;
+            margin: 10px;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .pasture-1 { background-color: #e6f7ff; }
+        .pasture-2 { background-color: #e6ffe6; }
+        .pasture-3 { background-color: #fff2e6; }
+        .grass-level {
+            height: 20px;
+            background-color: #4CAF50;
+            margin-top: 10px;
+            position: relative;
+            transition: width 0.3s;
+            width: 0%;
+        }
+        .cow-container {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .cow {
+            width: 20px;
+            height: 20px;
+            background-color: #8B4513;
+            border-radius: 50%;
+            margin: 2px;
+        }
+        .chart-container {
+            height: 300px;
+            margin-top: 30px;
+            position: relative;
+        }
+        .chart {
+            position: relative;
+            height: 250px;
+            border-left: 1px solid #333;
+            border-bottom: 1px solid #333;
+        }
+        .y-axis, .x-axis {
+            position: absolute;
+            color: #666;
+            font-size: 12px;
+        }
+        .y-axis {
+            left: -40px;
+            top: 50%;
+            transform: translateY(-50%);
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
+        }
+        .x-axis {
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            stroke-width: 2;
+            fill: none;
+        }
+        .line-1 { stroke: #1e88e5; }
+        .line-2 { stroke: #43a047; }
+        .line-3 { stroke: #ff8f00; }
+        .day-display {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .info-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        .validation-error {
+            color: #d32f2f;
+            background-color: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            display: none;
+        }
+        .calculated-values {
+            background-color: #e8f5e9;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        button {
+            padding: 8px 15px;
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        button:hover {
+            background-color: #1565c0;
+        }
+        button:disabled {
+            background-color: #90a4ae;
+            cursor: not-allowed;
+        }
+        .parameter-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .parameter-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .max-days-container {
+            margin-top: 15px;
+        }
+        .random-button {
+            background-color: #4caf50;
+        }
+        .random-button:hover {
+            background-color: #388e3c;
+        }
+        .parameter-constraint {
+            font-size: 0.9em;
+            color: #777;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>牧场草量动态模型</h1>
+    
+    <div class="parameter-section">
+        <div class="parameter-title">
+            <h2>模型参数设置</h2>
+            <div class="parameter-actions">
+                <button id="randomParamsBtn" class="random-button">生成随机参数</button>
+                <button id="recalculateBtn">验证并更新参数</button>
+            </div>
+        </div>
+        
+        <div class="parameter-constraint">
+            注意：面积、牛的数量和预计吃完时间必须为整数
+        </div>
+
+        <div class="parameter-grid">
+            <div class="parameter-item">
+                <label for="cowConsumption">每头牛每天食草量 (C)</label>
+                <input type="number" id="cowConsumption" value="1" min="0.1" step="0.1">
+            </div>
+        </div>
+
+        <h3>牧场1参数</h3>
+        <div class="parameter-grid">
+            <div class="parameter-item">
+                <label for="area1">面积 (公顷)</label>
+                <input type="number" id="area1" value="1" min="1" step="1">
+            </div>
+            <div class="parameter-item">
+                <label for="cows1">牛数量 (头)</label>
+                <input type="number" id="cows1" value="12" min="1" step="1">
+            </div>
+            <div class="parameter-item">
+                <label for="days1">预计吃完时间 (天)</label>
+                <input type="number" id="days1" value="10" min="1" step="1">
+            </div>
+        </div>
+
+        <h3>牧场2参数</h3>
+        <div class="parameter-grid">
+            <div class="parameter-item">
+                <label for="area2">面积 (公顷)</label>
+                <input type="number" id="area2" value="2" min="1" step="1">
+            </div>
+            <div class="parameter-item">
+                <label for="cows2">牛数量 (头)</label>
+                <input type="number" id="cows2" value="26" min="1" step="1">
+            </div>
+            <div class="parameter-item">
+                <label for="days2">预计吃完时间 (天)</label>
+                <input type="number" id="days2" value="14" min="1" step="1">
+            </div>
+        </div>
+
+        <h3>牧场3参数</h3>
+        <div class="parameter-grid">
+            <div class="parameter-item">
+                <label for="area3">面积 (公顷)</label>
+                <input type="number" id="area3" value="3" min="1" step="1">
+            </div>
+            <div class="parameter-item">
+                <label for="cows3">牛数量 (头)</label>
+                <input type="number" id="cows3" value="45" min="1" step="1">
+            </div>
+            <div class="parameter-item">
+                <label for="days3">预计吃完时间 (天)</label>
+                <input type="number" id="days3" value="70" min="1" step="1">
+            </div>
+        </div>
+
+        <div class="validation-error" id="validationError">
+            错误：当前参数设置下，初始草量为负值，不符合实际情况。请调整参数。
+        </div>
+
+        <div class="calculated-values" id="calculatedValues">
+            <strong>计算结果：</strong>
+            <div>每公顷每天生长草量 (G): <span id="growthRate">0</span> 单位</div>
+            <div>每公顷初始草量 (M): <span id="initialGrass">0</span> 单位</div>
+        </div>
+
+        <div class="max-days-container">
+            <div class="parameter-item">
+                <label for="maxDays">最大模拟天数</label>
+                <input type="number" id="maxDays" value="70" min="1" step="1">
+            </div>
+        </div>
+    </div>
+    
+    <div class="day-display">第 <span id="currentDay">0</span> 天</div>
+    
+    <div class="controls">
+        <button id="playBtn">播放/暂停</button>
+        <button id="resetBtn">重置</button>
+        <input type="range" id="speedSlider" min="1" max="10" value="2">
+        <label for="speedSlider">速度: <span id="speedValue">2</span></label>
+        <input type="range" id="daySlider" min="0" max="70" value="0">
+        <label for="daySlider">天数: <span id="dayValue">0</span>/<span id="maxDayValue">70</span></label>
+    </div>
+    
+    <div class="pasture-container">
+        <div class="pasture pasture-1">
+            <h3>牧场一</h3>
+            <p>面积: <span id="display-area1">1</span>公顷</p>
+            <p>牛数量: <span id="display-cows1">12</span>头</p>
+            <p>预计吃完时间: <span id="display-days1">10</span>天</p>
+            <p>当前草量: <span id="grass1">0</span> 单位</p>
+            <div class="grass-level" id="grassLevel1"></div>
+            <div class="cow-container" id="cowContainer1"></div>
+        </div>
+        
+        <div class="pasture pasture-2">
+            <h3>牧场二</h3>
+            <p>面积: <span id="display-area2">2</span>公顷</p>
+            <p>牛数量: <span id="display-cows2">26</span>头</p>
+            <p>预计吃完时间: <span id="display-days2">14</span>天</p>
+            <p>当前草量: <span id="grass2">0</span> 单位</p>
+            <div class="grass-level" id="grassLevel2"></div>
+            <div class="cow-container" id="cowContainer2"></div>
+        </div>
+        
+        <div class="pasture pasture-3">
+            <h3>牧场三</h3>
+            <p>面积: <span id="display-area3">3</span>公顷</p>
+            <p>牛数量: <span id="display-cows3">45</span>头</p>
+            <p>预计吃完时间: <span id="display-days3">70</span>天</p>
+            <p>当前草量: <span id="grass3">0</span> 单位</p>
+            <div class="grass-level" id="grassLevel3"></div>
+            <div class="cow-container" id="cowContainer3"></div>
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <h2>草量变化图</h2>
+        <div class="chart" id="chart">
+            <div class="y-axis">草量 (单位)</div>
+            <div class="x-axis">天数</div>
+            <svg width="100%" height="100%" id="chartSvg">
+                <path class="line line-1" id="line1"></path>
+                <path class="line line-2" id="line2"></path>
+                <path class="line line-3" id="line3"></path>
+            </svg>
+        </div>
+    </div>
+    
+    <div class="info-panel">
+        <h3>模型说明</h3>
+        <p>这个模型展示了在给定条件下，三块不同牧场的草量随时间的变化情况。</p>
+        <p>"生成随机参数"按钮可以自动创建一组合理的参数，确保初始草量为正值。</p>
+        <p>面积、牛的数量和预计吃完时间必须为整数。</p>
+        <p>基于参数，我们计算出：</p>
+        <ul>
+            <li>每公顷每天生长草量 (G)</li>
+            <li>每公顷初始草量 (M)</li>
+        </ul>
+        <p>系统会验证参数，确保模型有实际意义。</p>
+    </div>
+
+    <script>
+        // 全局变量
+        let C = 1; // 每头牛每天吃草量
+        let G = 0; // 每公顷每天生长草量
+        let M = 0; // 每公顷初始有效草量
+        let maxDays = 70; // 最大模拟天数
+        
+        // 牧场数据
+        let pastures = [
+            { area: 1, cows: 12, expectedDays: 10, initialGrass: 0, growthRate: 0, consumptionRate: 0 },
+            { area: 2, cows: 26, expectedDays: 14, initialGrass: 0, growthRate: 0, consumptionRate: 0 },
+            { area: 3, cows: 45, expectedDays: 70, initialGrass: 0, growthRate: 0, consumptionRate: 0 }
+        ];
+        
+        // 图表数据
+        const chartData = [
+            { id: 'line1', data: [], color: '#1e88e5' },
+            { id: 'line2', data: [], color: '#43a047' },
+            { id: 'line3', data: [], color: '#ff8f00' }
+        ];
+        
+        // 随机数生成函数
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+        
+        function getRandomFloat(min, max, decimals = 1) {
+            const val = Math.random() * (max - min) + min;
+            return parseFloat(val.toFixed(decimals));
+        }
+        
+        // 生成随机参数
+        function generateRandomParameters() {
+            // 每头牛每天食草量
+            C = getRandomFloat(0.5, 2, 1);
+            document.getElementById('cowConsumption').value = C;
+            
+            // 随机生成面积 (1-8公顷)，确保为整数
+            const area1 = getRandomInt(1, 3);
+            const area2 = getRandomInt(1, 5);
+            const area3 = getRandomInt(3, 8);
+            
+            document.getElementById('area1').value = area1;
+            document.getElementById('area2').value = area2;
+            document.getElementById('area3').value = area3;
+            
+            // 随机生成牛的数量 (根据面积适当设置)，确保为整数
+            const cows1 = getRandomInt(5, Math.floor(12 * area1));
+            const cows2 = getRandomInt(10, Math.floor(15 * area2));
+            const cows3 = getRandomInt(15, Math.floor(20 * area3));
+            
+            document.getElementById('cows1').value = cows1;
+            document.getElementById('cows2').value = cows2;
+            document.getElementById('cows3').value = cows3;
+            
+            // 设定合理的初始草量 (保证为正)
+            M = getRandomInt(5, 30);
+            
+            // 随机生成前两个牧场的吃完时间，确保为整数
+            const days1 = getRandomInt(7, 20);
+            const days2 = getRandomInt(10, 30);
+            
+            document.getElementById('days1').value = days1;
+            document.getElementById('days2').value = days2;
+            
+            // 计算生长率G
+            // M * area + G * area * days - C * cows * days = 0
+            // G = (C * cows * days - M * area) / (area * days)
+            
+            // 从牧场1计算G
+            G = (C * cows1 * days1 - M * area1) / (area1 * days1);
+            
+            // 验证牧场2数据是否合理
+            const expectedDaysForPasture2 = Math.round((C * cows2 * days2 - M * area2) / (G * area2));
+            if (Math.abs(expectedDaysForPasture2 - days2) > 5) {
+                // 如果计算出的天数差别太大，调整days2以保持一致
+                const newDays2 = Math.round((C * cows2 * days2 - M * area2) / (G * area2));
+                document.getElementById('days2').value = Math.max(10, Math.min(newDays2, 40));
+            }
+            
+            // 计算牧场3的预期天数，确保为整数
+            const daysCalc3 = (M * area3) / (C * cows3 - G * area3);
+            const days3 = Math.max(1, Math.round(daysCalc3));
+            
+            // 确保days3是一个合理的正值
+            if (days3 > 0 && days3 <= 100) {
+                document.getElementById('days3').value = days3;
+            } else {
+                // 如果days3不合理，重新调整牧场3参数
+                const adjustedCows3 = Math.floor(G * area3 / C) + getRandomInt(1, 5);
+                document.getElementById('cows3').value = adjustedCows3;
+                
+                // 重新计算合理的days3，确保为整数
+                const adjustedDaysCalc3 = (M * area3) / (C * adjustedCows3 - G * area3);
+                const adjustedDays3 = Math.max(1, Math.round(adjustedDaysCalc3));
+                
+                if (adjustedDays3 > 0 && adjustedDays3 <= 100) {
+                    document.getElementById('days3').value = adjustedDays3;
+                } else {
+                    // 如果还是不合理，设定一个默认值
+                    document.getElementById('days3').value = 50;
+                }
+            }
+            
+            // 更新最大模拟天数
+            const maxD = Math.max(days1, days2, parseInt(document.getElementById('days3').value)) + 10;
+            document.getElementById('maxDays').value = maxD;
+            
+            // 验证并更新参数
+            calculateParameters();
+        }
+        
+        // 计算生长率和初始草量
+        function calculateParameters() {
+            // 从输入获取参数
+            C = parseFloat(document.getElementById('cowConsumption').value);
+            pastures[0].area = parseInt(document.getElementById('area1').value);
+            pastures[0].cows = parseInt(document.getElementById('cows1').value);
+            pastures[0].expectedDays = parseInt(document.getElementById('days1').value);
+            
+            pastures[1].area = parseInt(document.getElementById('area2').value);
+            pastures[1].cows = parseInt(document.getElementById('cows2').value);
+            pastures[1].expectedDays = parseInt(document.getElementById('days2').value);
+            
+            pastures[2].area = parseInt(document.getElementById('area3').value);
+            pastures[2].cows = parseInt(document.getElementById('cows3').value);
+            pastures[2].expectedDays = parseInt(document.getElementById('days3').value);
+            
+            maxDays = parseInt(document.getElementById('maxDays').value);
+            
+            // 更新显示
+            document.getElementById('display-area1').textContent = pastures[0].area;
+            document.getElementById('display-cows1').textContent = pastures[0].cows;
+            document.getElementById('display-days1').textContent = pastures[0].expectedDays;
+            
+            document.getElementById('display-area2').textContent = pastures[1].area;
+            document.getElementById('display-cows2').textContent = pastures[1].cows;
+            document.getElementById('display-days2').textContent = pastures[1].expectedDays;
+            
+            document.getElementById('display-area3').textContent = pastures[2].area;
+            document.getElementById('display-cows3').textContent = pastures[2].cows;
+            document.getElementById('display-days3').textContent = pastures[2].expectedDays;
+            
+            document.getElementById('maxDayValue').textContent = maxDays;
+            document.getElementById('daySlider').max = maxDays;
+            
+            // 验证参数是否为整数
+            if (!Number.isInteger(pastures[0].area) || !Number.isInteger(pastures[0].cows) || !Number.isInteger(pastures[0].expectedDays) ||
+                !Number.isInteger(pastures[1].area) || !Number.isInteger(pastures[1].cows) || !Number.isInteger(pastures[1].expectedDays) ||
+                !Number.isInteger(pastures[2].area) || !Number.isInteger(pastures[2].cows) || !Number.isInteger(pastures[2].expectedDays)) {
+                document.getElementById('validationError').textContent = "错误：面积、牛的数量和预计吃完时间必须为整数";
+                document.getElementById('validationError').style.display = 'block';
+                document.getElementById('playBtn').disabled = true;
+                return false;
+            }
+            
+            // 根据前两个牧场计算G和M
+            try {
+                // 建立方程组
+                // 牧场1: M*area1 + G*area1*days1 - C*cows1*days1 = 0
+                // 牧场2: M*area2 + G*area2*days2 - C*cows2*days2 = 0
+                
+                // 简化为二元一次方程组，求解G和M
+                const a1 = pastures[0].area;
+                const a2 = pastures[1].area;
+                const d1 = pastures[0].expectedDays;
+                const d2 = pastures[1].expectedDays;
+                const c1 = C * pastures[0].cows * d1;
+                const c2 = C * pastures[1].cows * d2;
+                
+                // 从方程组中解出G和M
+                // a1*M + a1*d1*G = c1
+                // a2*M + a2*d2*G = c2
+                
+                // 消元法解二元一次方程组
+                const det = a1 * a2 * d2 - a2 * a1 * d1;
+                
+                if (Math.abs(det) < 1e-10) {
+                    throw new Error("参数设置导致方程组无解或有无数解");
+                }
+                
+                G = (a1 * c2 - a2 * c1) / (a1 * a2 * d2 - a2 * a1 * d1);
+                M = (c1 - a1 * d1 * G) / a1;
+                
+                // 显示计算结果
+                document.getElementById('growthRate').textContent = G.toFixed(2);
+                document.getElementById('initialGrass').textContent = M.toFixed(2);
+                
+                // 显示验证结果
+                const validationError = document.getElementById('validationError');
+                const playBtn = document.getElementById('playBtn');
+                
+                if (M <= 0) {
+                    validationError.textContent = "错误：当前参数设置下，初始草量为负值，不符合实际情况。请调整参数。";
+                    validationError.style.display = 'block';
+                    playBtn.disabled = true;
+                    return false;
+                } else {
+                    validationError.style.display = 'none';
+                    playBtn.disabled = false;
+                    
+                    // 更新牧场数据
+                    for (let i = 0; i < 3; i++) {
+                        pastures[i].initialGrass = M * pastures[i].area;
+                        pastures[i].growthRate = G * pastures[i].area;
+                        pastures[i].consumptionRate = C * pastures[i].cows;
+                    }
+                    
+                    // 检查第三个牧场的方程是否满足
+                    const actual3 = M * pastures[2].area + G * pastures[2].area * pastures[2].expectedDays - C * pastures[2].cows * pastures[2].expectedDays;
+                    if (Math.abs(actual3) > 1) {
+                        console.log("注意：第三个牧场的参数与前两个计算出的G和M值不一致，差值为" + actual3.toFixed(2));
+                    }
+                    
+                    return true;
+                }
+            } catch (error) {
+                document.getElementById('validationError').textContent = "计算错误: " + error.message;
+                document.getElementById('validationError').style.display = 'block';
+                document.getElementById('playBtn').disabled = true;
+                return false;
+            }
+        }
+        
+        // 初始化UI
+        function initUI() {
+            // 生成牛图标
+            for (let i = 0; i < 3; i++) {
+                const cowContainer = document.getElementById(`cowContainer${i+1}`);
+                cowContainer.innerHTML = '';
+                const maxDisplay = Math.min(pastures[i].cows, 20); // 最多显示20头牛
+                for (let j = 0; j < maxDisplay; j++) {
+                    const cow = document.createElement('div');
+                    cow.className = 'cow';
+                    cowContainer.appendChild(cow);
+                }
+                if (pastures[i].cows > maxDisplay) {
+                    const more = document.createElement('div');
+                    more.textContent = `+${pastures[i].cows - maxDisplay}`;
+                    more.style.marginLeft = '5px';
+                    cowContainer.appendChild(more);
+                }
+            }
+            
+            // 初始化图表数据
+            for (let i = 0; i < 3; i++) {
+                chartData[i].data = [];
+            }
+        }
+        
+        // 计算指定天数的草量
+        function calculateGrass(day) {
+            for (let i = 0; i < 3; i++) {
+                const p = pastures[i];
+                let grass = p.initialGrass;
+                
+                for (let d = 0; d < day; d++) {
+                    grass += p.growthRate - p.consumptionRate;
+                    // 如果草量为负，但预期天数内应该保持0或以上，则设为0
+                    if (grass < 0 && d < p.expectedDays - 1) grass = 0;
+                }
+                
+                // 更新草量显示
+                document.getElementById(`grass${i+1}`).textContent = Math.max(grass, 0).toFixed(1);
+                
+                // 更新草量图形
+                const maxGrass = Math.max(p.initialGrass, p.growthRate * p.expectedDays);
+                const percentage = Math.min(Math.max(grass / maxGrass * 100, 0), 100);
+                document.getElementById(`grassLevel${i+1}`).style.width = `${percentage}%`;
+                
+                // 记录图表数据
+                if (chartData[i].data.length <= day) {
+                    chartData[i].data.push(Math.max(grass, 0));
+                }
+            }
+            
+            // 更新图表
+            updateChart();
+        }
+        
+        // 更新图表
+        function updateChart() {
+            const chart = document.getElementById('chartSvg');
+            const width = chart.clientWidth;
+            const height = chart.clientHeight;
+            
+            // 找到最大值以确定比例
+            let maxValue = 0;
+            for (let i = 0; i < 3; i++) {
+                const max = Math.max(...chartData[i].data);
+                if (max > maxValue) maxValue = max;
+            }
+            
+            // 确保最大值不为0
+            maxValue = Math.max(maxValue, 100);
+            
+            // 绘制每条线
+            for (let i = 0; i < 3; i++) {
+                const data = chartData[i].data;
+                if (data.length === 0) continue;
+                
+                let path = `M 0,${height - (data[0] / maxValue * height)}`;
+                
+                for (let j = 1; j < data.length; j++) {
+                    const x = j / maxDays * width;
+                    const y = height - (data[j] / maxValue * height);
+                    path += ` L ${x},${y}`;
+                }
+                
+                document.getElementById(chartData[i].id).setAttribute('d', path);
+            }
+        }
+        
+        // 设置动画
+        let currentDay = 0;
+        let isPlaying = false;
+        let animationInterval;
+        let speed = 2;
+        
+        function startAnimation() {
+            stopAnimation();
+            isPlaying = true;
+            animationInterval = setInterval(() => {
+                currentDay++;
+                if (currentDay > maxDays) {
+                    currentDay = maxDays;
+                    stopAnimation();
+                }
+                updateDisplay();
+            }, 1000 / speed);
+        }
+        
+        function stopAnimation() {
+            isPlaying = false;
+            clearInterval(animationInterval);
+        }
+        
+        function resetAnimation() {
+            stopAnimation();
+            currentDay = 0;
+            for (let i = 0; i < 3; i++) {
+                chartData[i].data = [];
+            }
+            updateDisplay();
+        }
+        
+        function updateDisplay() {
+            document.getElementById('currentDay').textContent = currentDay;
+            document.getElementById('daySlider').value = currentDay;
+            document.getElementById('dayValue').textContent = currentDay;
+            calculateGrass(currentDay);
+        }
+        
+        // 事件监听
+        document.getElementById('randomParamsBtn').addEventListener('click', function() {
+            generateRandomParameters();
+            resetAnimation();
+            initUI();
+        });
+        
+        document.getElementById('recalculateBtn').addEventListener('click', function() {
+            if (calculateParameters()) {
+                resetAnimation();
+                initUI();
+            }
+        });
+        
+        document.getElementById('playBtn').addEventListener('click', () => {
+            if (isPlaying) {
+                stopAnimation();
+            } else {
+                startAnimation();
+            }
+        });
+        
+        document.getElementById('resetBtn').addEventListener('click', resetAnimation);
+        
+        document.getElementById('speedSlider').addEventListener('input', function() {
+            speed = parseInt(this.value);
+            document.getElementById('speedValue').textContent = speed;
+            if (isPlaying) {
+                startAnimation(); // 重新启动动画以应用新速度
+            }
+        });
+        
+        document.getElementById('daySlider').addEventListener('input', function() {
+            stopAnimation();
+            currentDay = parseInt(this.value);
+            updateDisplay();
+        });
+        
+        // 强制输入框只能输入整数
+        document.querySelectorAll('input[type="number"]').forEach(input => {
+            if (input.id !== 'cowConsumption') { // 除了牛的消耗量外，其他都必须是整数
+                input.addEventListener('change', function() {
+                    if (this.value !== '' && !this.value.includes('.')) {
+                        this.value = parseInt(this.value);
+                    }
+                });
+            }
+        });
+        
+        // 初始化
+        window.addEventListener('load', () => {
+            // 初次加载时，自动生成随机参数
+            generateRandomParameters();
+            initUI();
+            resetAnimation();
+            
+            // 调整图表大小
+            window.addEventListener('resize', updateChart);
+        });
+    </script>
+</body>
+</html>
